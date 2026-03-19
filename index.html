@@ -1,13 +1,365 @@
----
-layout: presentation
----
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loan Calculator</title>
+  <style>
+    :root {
+      --bg: #09111f;
+      --panel: rgba(14, 25, 46, 0.92);
+      --panel-border: rgba(148, 163, 184, 0.2);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-strong: #0ea5e9;
+      --success: #34d399;
+      --danger: #f87171;
+    }
 
-{% for post in site.posts reversed %}
-	{% include slide.html %}
-	<div class="page-break"></div>
-{% endfor %}
-{% unless site.simple-slideshow %}
-{% if site.overview %}
-<section id="overview" class="step" {% for attr in site.overview-data %} data-{{attr[0]}}="{{attr[1]}}"{% endfor %}></section>
-{% endif %}
-{% endunless %}
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      background: radial-gradient(circle at top, #15325d 0%, var(--bg) 50%, #04070d 100%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .app {
+      width: min(100%, 980px);
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+    }
+
+    .content,
+    .result {
+      padding: 32px;
+    }
+
+    .content {
+      border-right: 1px solid var(--panel-border);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+    }
+
+    .lead {
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .currency-toggle {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 18px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(14, 165, 233, 0.3);
+    }
+
+    .currency-note {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.95rem;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 14px;
+      padding: 14px 16px;
+      background: rgba(15, 23, 42, 0.75);
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+    }
+
+    .helper {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    .error {
+      min-height: 24px;
+      color: var(--danger);
+      font-size: 0.92rem;
+      margin-top: 4px;
+    }
+
+    .result {
+      background: rgba(2, 6, 23, 0.5);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-self: flex-start;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(52, 211, 153, 0.12);
+      color: var(--success);
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+
+    .result h2 {
+      margin: 0 0 10px;
+      font-size: 1.4rem;
+    }
+
+    .emi {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 800;
+      margin: 14px 0 22px;
+      color: white;
+    }
+
+    .stats {
+      display: grid;
+      gap: 14px;
+    }
+
+    .stat-card {
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 16px;
+      padding: 16px;
+      background: rgba(15, 23, 42, 0.55);
+    }
+
+    .stat-title {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    @media (max-width: 800px) {
+      .app { grid-template-columns: 1fr; }
+      .content { border-right: none; border-bottom: 1px solid var(--panel-border); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="content">
+      <h1>Loan Calculator</h1>
+      <p class="lead">
+        Enter the loan amount and tenor to estimate the monthly repayment using the EMI method.
+        This calculator uses a fixed annual interest rate of <strong>12%</strong>.
+      </p>
+
+      <div class="toolbar">
+        <button id="currencyToggle" class="currency-toggle" type="button">Switch to KHR</button>
+        <div id="currencyNote" class="currency-note"></div>
+      </div>
+
+      <div class="form-grid">
+        <div>
+          <label for="loanAmount">Loan amount</label>
+          <input id="loanAmount" type="number" min="500" step="0.01" value="5000" />
+          <div id="amountHelper" class="helper"></div>
+        </div>
+
+        <div>
+          <label for="tenor">Tenor (months)</label>
+          <input id="tenor" type="number" min="1" step="1" value="12" />
+          <div class="helper">Choose how many months the customer will repay the loan.</div>
+        </div>
+      </div>
+
+      <div id="error" class="error" aria-live="polite"></div>
+    </section>
+
+    <aside class="result">
+      <div class="pill">EMI Estimate</div>
+      <h2>Monthly repayment</h2>
+      <div id="emiValue" class="emi">$0.00</div>
+
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-title">Loan amount</div>
+          <div id="principalValue" class="stat-value">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Total repayment</div>
+          <div id="totalValue" class="stat-value">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Total interest</div>
+          <div id="interestValue" class="stat-value">$0.00</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const EXCHANGE_RATE = 4000;
+    const ANNUAL_RATE = 0.12;
+
+    const configs = {
+      USD: {
+        symbol: '$',
+        min: 500,
+        max: 20000,
+        step: 0.01,
+        locale: 'en-US',
+        buttonText: 'Switch to KHR'
+      },
+      KHR: {
+        symbol: 'KHR ',
+        min: 2000000,
+        max: 800000000,
+        step: 1000,
+        locale: 'en-US',
+        buttonText: 'Switch to USD'
+      }
+    };
+
+    const loanAmountInput = document.getElementById('loanAmount');
+    const tenorInput = document.getElementById('tenor');
+    const currencyToggle = document.getElementById('currencyToggle');
+    const currencyNote = document.getElementById('currencyNote');
+    const amountHelper = document.getElementById('amountHelper');
+    const error = document.getElementById('error');
+    const emiValue = document.getElementById('emiValue');
+    const principalValue = document.getElementById('principalValue');
+    const totalValue = document.getElementById('totalValue');
+    const interestValue = document.getElementById('interestValue');
+
+    let currentCurrency = 'USD';
+
+    function formatCurrency(value) {
+      const { symbol, locale } = configs[currentCurrency];
+      const rounded = currentCurrency === 'USD' ? value.toFixed(2) : Math.round(value).toLocaleString(locale);
+      return `${symbol}${currentCurrency === 'USD' ? Number(rounded).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : rounded}`;
+    }
+
+    function updateCurrencyUI() {
+      const config = configs[currentCurrency];
+      loanAmountInput.min = config.min;
+      loanAmountInput.max = config.max;
+      loanAmountInput.step = config.step;
+      currencyToggle.textContent = config.buttonText;
+      amountHelper.textContent = `Allowed range: ${formatCurrency(config.min)} to ${formatCurrency(config.max)}.`;
+      currencyNote.textContent = `Current currency: ${currentCurrency} · Fixed annual rate: ${(ANNUAL_RATE * 100).toFixed(0)}% · Exchange rate: 1 USD = ${EXCHANGE_RATE.toLocaleString('en-US')} KHR`;
+    }
+
+    function calculateEMI(principal, months) {
+      const monthlyRate = ANNUAL_RATE / 12;
+      if (monthlyRate === 0) return principal / months;
+      const factor = Math.pow(1 + monthlyRate, months);
+      return (principal * monthlyRate * factor) / (factor - 1);
+    }
+
+    function syncConvertedAmount(nextCurrency) {
+      const currentAmount = Number(loanAmountInput.value) || 0;
+      let converted = nextCurrency === 'KHR' ? currentAmount * EXCHANGE_RATE : currentAmount / EXCHANGE_RATE;
+      const nextConfig = configs[nextCurrency];
+      converted = Math.min(Math.max(converted, nextConfig.min), nextConfig.max);
+      loanAmountInput.value = nextCurrency === 'USD' ? converted.toFixed(2) : Math.round(converted);
+    }
+
+    function render() {
+      const config = configs[currentCurrency];
+      const principal = Number(loanAmountInput.value);
+      const months = Number(tenorInput.value);
+
+      if (!principal || !months) {
+        error.textContent = 'Please enter both loan amount and tenor.';
+        emiValue.textContent = formatCurrency(0);
+        principalValue.textContent = formatCurrency(0);
+        totalValue.textContent = formatCurrency(0);
+        interestValue.textContent = formatCurrency(0);
+        return;
+      }
+
+      if (principal < config.min || principal > config.max) {
+        error.textContent = `Loan amount must be between ${formatCurrency(config.min)} and ${formatCurrency(config.max)}.`;
+        emiValue.textContent = formatCurrency(0);
+        principalValue.textContent = formatCurrency(principal);
+        totalValue.textContent = formatCurrency(0);
+        interestValue.textContent = formatCurrency(0);
+        return;
+      }
+
+      if (months < 1) {
+        error.textContent = 'Tenor must be at least 1 month.';
+        return;
+      }
+
+      error.textContent = '';
+      const emi = calculateEMI(principal, months);
+      const total = emi * months;
+      const interest = total - principal;
+
+      emiValue.textContent = formatCurrency(emi);
+      principalValue.textContent = formatCurrency(principal);
+      totalValue.textContent = formatCurrency(total);
+      interestValue.textContent = formatCurrency(interest);
+    }
+
+    currencyToggle.addEventListener('click', () => {
+      const nextCurrency = currentCurrency === 'USD' ? 'KHR' : 'USD';
+      syncConvertedAmount(nextCurrency);
+      currentCurrency = nextCurrency;
+      updateCurrencyUI();
+      render();
+    });
+
+    loanAmountInput.addEventListener('input', render);
+    tenorInput.addEventListener('input', render);
+
+    updateCurrencyUI();
+    render();
+  </script>
+</body>
+</html>
